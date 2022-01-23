@@ -22,6 +22,7 @@
 
 #include "Drivetrain.h"
 #include <units/angle.h>
+#include <networktables/NetworkTableInstance.h>
 
 /**
  * This sample program shows how to use Mechanism2d - a visual representation of
@@ -45,6 +46,7 @@ public:
 
   void RobotPeriodic() override {
     m_drive.Periodic();
+    nt::NetworkTableInstance::GetDefault().Flush();
   }
 
   void TeleopPeriodic() override { 
