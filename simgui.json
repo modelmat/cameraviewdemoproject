@@ -1,0 +1,39 @@
+{
+  "NTProvider": {
+    "types": {
+      "/FMSInfo": "FMSInfo",
+      "/LiveWindow/Ungrouped/ADXRS450_Gyro[0]": "Gyro",
+      "/LiveWindow/Ungrouped/DifferentialDrive[1]": "DifferentialDrive",
+      "/LiveWindow/Ungrouped/DigitalInput[0]": "Digital Input",
+      "/LiveWindow/Ungrouped/DigitalInput[1]": "Digital Input",
+      "/LiveWindow/Ungrouped/DigitalInput[2]": "Digital Input",
+      "/LiveWindow/Ungrouped/DigitalInput[3]": "Digital Input",
+      "/SmartDashboard/Field": "Field2d",
+      "/SmartDashboard/Mech2d": "Mechanism2d"
+    },
+    "windows": {
+      "/SmartDashboard/Field": {
+        "window": {
+          "visible": true
+        }
+      }
+    }
+  },
+  "NetworkTables": {
+    "SmartDashboard": {
+      "Field": {
+        "open": true
+      },
+      "Mech2d": {
+        "open": true
+      },
+      "PhotonCameraView": {
+        "A": {
+          "open": true
+        },
+        "open": true
+      },
+      "open": true
+    }
+  }
+}
