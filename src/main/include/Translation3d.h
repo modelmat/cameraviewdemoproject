@@ -7,6 +7,8 @@
 #include <units/length.h>
 #include <opencv2/core/types.hpp>
 
+#include <frc/geometry/Pose2d.h>
+
 
 /**
  * Represents a translation in 3d space.
@@ -32,6 +34,8 @@ class Translation3d {
    * @param z The z component of the translation.
    */
   Translation3d(units::meter_t x, units::meter_t y, units::meter_t z);
+
+  static Translation3d FromXYPose(frc::Pose2d pose, units::meter_t z);
 
   /**
    * Calculates the distance between two translations in 3d space.

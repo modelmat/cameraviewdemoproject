@@ -9,6 +9,10 @@
 Translation3d::Translation3d(units::meter_t x, units::meter_t y, units::meter_t z)
     : m_x(x), m_y(y), m_z(z) {}
 
+Translation3d Translation3d::FromXYPose(frc::Pose2d pose, units::meter_t z) {
+  return {pose.X(), pose.Y(), z};
+}
+
 units::meter_t Translation3d::Distance(const Translation3d& other) const {
   return (*this - other).Norm();
 }
@@ -48,9 +52,6 @@ bool Translation3d::operator!=(const Translation3d& other) const {
 }
 
 // TODO: Make autoconvetable
-// OpenCV has z forward, x right, y down
-// My code has x forward, y left, z up
-// So z is x, x is -y, y is -z
 cv::Point3d Translation3d::ToPoint3d() const {
-  return cv::Point3d(-m_y.value(), -m_z.value(), m_x.value());
+  return cv::Point3d(m_x.value(), m_y.value(), m_z.value());
 }

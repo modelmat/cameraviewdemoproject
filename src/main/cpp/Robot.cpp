@@ -62,24 +62,89 @@ public:
 
   void ProjectPointsInit() {
     Translation3d previousPoint = m_pointsOrigin;
-    for (auto point : m_pointsRelPointsOrigin) {
+    for (auto point : m_pointsRelative) {
       auto currentPoint = previousPoint + point;
-      m_pointsOpenCVWorld.push_back(currentPoint.ToPoint3d());
+      m_pointsAbsolute_point3D.push_back(currentPoint.ToPoint3d());
       previousPoint = currentPoint;
     }
   }
 
   void ProjectPoints() {
-    cv::Mat tvec = cv::Mat::zeros(3, 1, CV_32FC1);
-// OpenCV has z forward, x right, y down
-// My code / wpilib has x forward, y left, z up
-// So z is x, x is -y, y is -z
-// but this is also negated for some reason lol
-    tvec.at<float>(0, 0) = m_drive.GetPose().Y().value();
-    tvec.at<float>(1, 0) = 0; // camera height
-    tvec.at<float>(2, 0) = -m_drive.GetPose().X().value();
+    /* Camera frame is z forward, x right, y down
+     *
+     *     7 Z-axis
+     *    /
+     *   /
+     *  +-----------> X-axis
+     *  |
+     *  |
+     *  V Y-axis
+     *
+     * World frame is x (long side), y (short side), z up.
+     * 
+     *                        7  X-axis
+     *                       /
+     *             /--------/
+     *            / Z-axis /
+     *           /     ^  /
+     *          /      | /
+     *         /       |/
+     * Y-axis <--------+ 
+     *
+     * To convert from world to camera we rotate the axes clockwise by pi/2
+     * around the x axis and then anticlockwise pi/2 around the y axis, using 
+     * https://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations.
+     * 
+     * i.e. camera [x,y,z]ᵀ = Rᵧ(-π/2) Rₓ(π/2) ( world [x, y, z]ᵀ )
+     * 
+     * Note: Rotating anticlockwise is given by the direction fingers curl
+     *       in the right hand grip rule, when the thumb pointed in direction
+     *       of the axis to be rotated about (looking from neg to pos).
+     * 
+     */
+    double Rx_data[3][3] = {
+      {1, 0, 0},
+      {0, 0, -1},
+      {0, 1, 0}
+    };
+    cv::Mat Rx{3, 3, CV_64F, Rx_data};
 
-    std::vector<double> rvec{0, m_drive.GetPose().Rotation().Radians().value(), 0};
+    double Ry_data[3][3] = {
+      {0, 0, -1},
+      {0, 1, 0},
+      {1, 0, 0}
+    };
+    cv::Mat Ry{3, 3, CV_64F, Ry_data};
+
+    // Since y is down, we want to rotate axes clockwise, so that angle from
+    // Pose2d (-π, π] matches the WPILib convention of CCW positive.
+    auto cameraYawOffset = 0_deg;
+    auto theta_yaw = m_drive.GetPose().Rotation().Radians() + cameraYawOffset;
+    double yawData[3][3] = {
+      {units::math::cos(theta_yaw), 0, units::math::sin(theta_yaw)},
+      {0, 1, 0},
+      {-units::math::sin(theta_yaw), 0, units::math::cos(theta_yaw)}
+    };
+    cv::Mat yaw{3, 3, CV_64F, yawData};
+    auto theta_tilt = 10_deg;
+    double tiltData[3][3] = {
+      {1, 0, 0},
+      {0, units::math::cos(-theta_tilt), -units::math::sin(-theta_tilt)},
+      {0, units::math::sin(-theta_tilt), units::math::cos(-theta_tilt)}
+    };
+    cv::Mat cameraTilt{3, 3, CV_64F, tiltData};
+   
+    cv::Mat R = cameraTilt * yaw * Ry * Rx;
+
+    cv::Mat rvec;
+    // cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64F);
+    cv::Rodrigues(R, rvec);
+
+    // 0_m is camera height. transform is in world coordinates
+    cv::Mat transform{Translation3d::FromXYPose(m_drive.GetPose(), 0_m).ToPoint3d()};
+    // tvec is in the camera frame
+    cv::Mat tvec = R * -transform;
+    std::cout << tvec << "\n";
 
     cv::Mat distortion = cv::Mat::zeros(5, 1, CV_32FC1);
     cv::Mat intrinsics = cv::Mat::eye(3, 3, CV_32FC1);
@@ -89,7 +154,7 @@ public:
     intrinsics.at<float>(1, 2) = kImageHeight / 2; // Optical Centre, y
 
     std::vector<cv::Point2d> projectedPoints;
-    cv::projectPoints(m_pointsOpenCVWorld, // objectPoints
+    cv::projectPoints(m_pointsAbsolute_point3D, // objectPoints
                       rvec,             // rotation vec
                       tvec,             // translation vec
                       intrinsics,       // cameraMatrix
@@ -144,7 +209,7 @@ private:
   static constexpr units::meter_t kFieldLength = 52_ft + 5.25_in;
   static constexpr units::meter_t kFieldWidth = 26_ft + 11.25_in;
 
-  static constexpr units::meter_t kGoalFloorHeight = /* 6_ft + 9.25_in */ 0_in;
+  static constexpr units::meter_t kGoalFloorHeight = 6_ft + 9.25_in;
 
   static constexpr units::meter_t kGoalWidth = 3_ft + 3.25_in;
   static constexpr units::meter_t kGoalHalfHeight = 1_ft + 5_in;
@@ -159,7 +224,7 @@ private:
       m_goalOrigin +
       Translation3d{0_m, -kGoalWidth / 2.0, 0_m}}; // Leftmost point
   // Relative to the previous point
-  std::vector<Translation3d> m_pointsRelPointsOrigin{
+  std::vector<Translation3d> m_pointsRelative{
       {0_m, 0_m, 0_m},
       {0_m, kGoalWidth / 4, -kGoalHalfHeight},
       {0_m, kGoalWidth / 2, 0_m},
@@ -169,7 +234,7 @@ private:
       {0_m, -kInnerGoalWidth / 2, 0_m},
       {0_m, -kInnerGoalWidth / 4, +kInnerGoalHalfHeight},
       {0_m, -kTapeWidth,          0_m}};
-  std::vector<cv::Point3d> m_pointsOpenCVWorld{};
+  std::vector<cv::Point3d> m_pointsAbsolute_point3D{};
 };
 
 #ifndef RUNNING_FRC_TESTS
