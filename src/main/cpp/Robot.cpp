@@ -116,51 +116,89 @@ public:
     };
     cv::Mat Ry{3, 3, CV_64F, Ry_data};
 
+    using units::math::cos;
+    using units::math::sin;
+
     // Since y is down, we want to rotate axes clockwise, so that angle from
     // Pose2d (-π, π] matches the WPILib convention of CCW positive.
     auto cameraYawOffset = 0_deg;
     auto theta_yaw = m_drive.GetPose().Rotation().Radians() + cameraYawOffset;
     double yawData[3][3] = {
-      {units::math::cos(theta_yaw), 0, units::math::sin(theta_yaw)},
+      {cos(theta_yaw), 0, sin(theta_yaw)},
       {0, 1, 0},
-      {-units::math::sin(theta_yaw), 0, units::math::cos(theta_yaw)}
+      {-sin(theta_yaw), 0, cos(theta_yaw)}
     };
     cv::Mat yaw{3, 3, CV_64F, yawData};
-    auto theta_tilt = 10_deg;
+    auto theta_tilt = 45_deg;
     double tiltData[3][3] = {
       {1, 0, 0},
-      {0, units::math::cos(-theta_tilt), -units::math::sin(-theta_tilt)},
-      {0, units::math::sin(-theta_tilt), units::math::cos(-theta_tilt)}
+      {0, cos(-theta_tilt), -sin(-theta_tilt)},
+      {0, sin(-theta_tilt), cos(-theta_tilt)}
     };
     cv::Mat cameraTilt{3, 3, CV_64F, tiltData};
    
     cv::Mat R = cameraTilt * yaw * Ry * Rx;
-
     cv::Mat rvec;
-    // cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64F);
     cv::Rodrigues(R, rvec);
 
-    // 0_m is camera height. transform is in world coordinates
-    cv::Mat transform{Translation3d::FromXYPose(m_drive.GetPose(), 0_m).ToPoint3d()};
-    // tvec is in the camera frame
-    cv::Mat tvec = R * -transform;
-    std::cout << tvec << "\n";
+    // https://en.wikipedia.org/wiki/Camera_resectioning#Extrinsic_parameters
+    // The position, C of the camera from the world origin is -Rᵀ T;
+    // T is the position of origin from camera.
+    // C = -R^(-1)T
+    // CR = -T
+    // T = -R C
 
+    // 0_m is camera height. transform is in world coordinates
+    cv::Mat cameraInWorldFrame{Translation3d::FromXYPose(m_drive.GetPose(), 0_m).ToPoint3d()};
+    // tvec is in the camera frame
+    cv::Mat tvec = - R * cameraInWorldFrame;
+
+    /* "Clean" Camera
     cv::Mat distortion = cv::Mat::zeros(5, 1, CV_32FC1);
     cv::Mat intrinsics = cv::Mat::eye(3, 3, CV_32FC1);
     intrinsics.at<float>(0, 0) = 300.0f; // Focal Length, x
     intrinsics.at<float>(1, 1) = 300.0f; // Focal Length, y
     intrinsics.at<float>(0, 2) = kImageWidth / 2; // Optical Centre, x
     intrinsics.at<float>(1, 2) = kImageHeight / 2; // Optical Centre, y
+    */
+
+    // Data from: https://github.com/PhotonVision/photonvision/blob/master/test-resources/calibration/lifecam480p.json
+    double distortionData[5] = {0.14382207979312617,
+                                 -0.9851192814987014,
+                                 -0.018168751047242335,
+                                 0.011034504043795105,
+                                 1.9833437176538498};
+    cv::Mat distortion{5, 1, CV_64F, distortionData};
+    double instrinsicsData[3][3] = {
+      {699.3778103158814, 0, 345.6059345433618},
+      {0, 677.7161226393544, 207.12741326228522},
+      {0, 0, 1}
+    };
+    cv::Mat intrinsics{3, 3, CV_64F, instrinsicsData};
+
+    std::vector<cv::Point3d> filteredPoints{};
+    for (auto point : m_pointsAbsolute_point3D) {
+      cv::Mat pointInCameraFrame = R * cv::Mat{point} + tvec;
+      // Get the z (forward) axis. If behind camera, don't use.
+      // TODO: Deal with the disappearing points graphically
+      if (pointInCameraFrame.at<double>(2, 0) > 0) {
+          filteredPoints.push_back(point);
+      }
+    }
 
     std::vector<cv::Point2d> projectedPoints;
-    cv::projectPoints(m_pointsAbsolute_point3D, // objectPoints
-                      rvec,             // rotation vec
-                      tvec,             // translation vec
-                      intrinsics,       // cameraMatrix
-                      distortion,       // distortion cofeficients
-                      projectedPoints   // output
-    );
+    if (filteredPoints.size() == 0) {
+      projectedPoints = std::vector<cv::Point2d>(m_pointsAbsolute_point3D.size(), cv::Point2d{0, 0});
+    } else {
+      cv::projectPoints(filteredPoints,   // objectPoints
+                        rvec,             // rotation vec
+                        tvec,             // translation vec
+                        intrinsics,       // cameraMatrix
+                        distortion,       // distortion cofeficients
+                        projectedPoints   // output
+      );
+    }
+
 
     std::vector<cv::Point2d> projectedPointsBetterAxes = {};
     for (auto point : projectedPoints) {
@@ -184,8 +222,8 @@ private:
   Drivetrain m_drive{};
   frc::FieldObject2d* m_fieldObject = m_drive.GetField()->GetObject("Goal");
 
-  static constexpr int kImageWidth = 1280;
-  static constexpr int kImageHeight = 720;
+  static constexpr int kImageWidth = 640;
+  static constexpr int kImageHeight = 480;
 
   PhotonCameraView m_camera{kImageWidth, kImageHeight};
   PhotonCameraViewTarget *m_A = m_camera.GetRoot("A", 0, 0);

@@ -1,0 +1,105 @@
+{
+  "NetworkTables": {
+    "SmartDashboard": {
+      "Mech2d": {
+        "climber": {
+          "elevator": {
+            "open": true,
+            "wrist": {
+              "open": true
+            }
+          },
+          "open": true
+        },
+        "open": true
+      },
+      "PhotonCameraView": {
+        "A": {
+          "B": {
+            "C": {
+              "D": {
+                "E": {
+                  "F": {
+                    "open": true
+                  },
+                  "open": true
+                },
+                "open": true
+              }
+            }
+          },
+          "open": true
+        },
+        "PowerPort": {
+          "SideNegativeSlope": {
+            "Flat": {
+              "SidePositiveSlope": {
+                "open": true
+              },
+              "open": true
+            },
+            "open": true
+          },
+          "open": true
+        },
+        "PowerPortLower": {
+          "SideNegativeSlope": {
+            "Flat": {
+              "SidePositiveSlope": {
+                "open": true
+              },
+              "open": true
+            },
+            "open": true
+          }
+        },
+        "climber": {
+          "elevator": {
+            "open": true,
+            "wrist": {
+              "open": true
+            }
+          },
+          "open": true
+        },
+        "open": true
+      },
+      "open": true
+    },
+    "types": {
+      "/FMSInfo": "FMSInfo",
+      "/LiveWindow/Ungrouped/ADXRS450_Gyro[0]": "Gyro",
+      "/LiveWindow/Ungrouped/DifferentialDrive[1]": "DifferentialDrive",
+      "/LiveWindow/Ungrouped/DigitalInput[0]": "Digital Input",
+      "/LiveWindow/Ungrouped/DigitalInput[1]": "Digital Input",
+      "/LiveWindow/Ungrouped/DigitalInput[2]": "Digital Input",
+      "/LiveWindow/Ungrouped/DigitalInput[3]": "Digital Input",
+      "/SmartDashboard/Field": "Field2d",
+      "/SmartDashboard/Mech2d": "PhotonCamera",
+      "/SmartDashboard/PhotonCameraView": "PhotonCamera"
+    },
+    "windows": {
+      "/SmartDashboard/Field": {
+        "Goal": {
+          "arrowSize": 32,
+          "style": "Line (Closed)"
+        },
+        "Robot": {
+          "style": "Box/Image"
+        },
+        "window": {
+          "visible": true
+        }
+      },
+      "/SmartDashboard/PhotonCameraView": {
+        "window": {
+          "visible": true
+        }
+      }
+    }
+  },
+  "NetworkTables Settings": {
+    "mode": "Client",
+    "serverTeam": "localhost"
+  }
+}
